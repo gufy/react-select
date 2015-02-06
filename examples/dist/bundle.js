@@ -1,19 +1,24 @@
 require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-function classnames() {
+function classNames() {
 	var args = arguments, classes = [];
 	for (var i = 0; i < args.length; i++) {
-		if (args[i] && 'string' === typeof args[i]) {
-			classes.push(args[i]);
-		} else if ('object' === typeof args[i]) {
-			classes = classes.concat(Object.keys(args[i]).filter(function(cls) {
-				return args[i][cls];
+		var arg = args[i];
+		if (arg == null) {
+			continue;
+		}
+
+		if ('string' === typeof arg) {
+			classes.push(arg);
+		} else if ('object' === typeof arg) {
+			classes = classes.concat(Object.keys(arg).filter(function(cls) {
+				return arg[cls];
 			}));
 		}
 	}
-	return classes.join(' ') || undefined;
+	return classes.join(' ');
 }
 
-module.exports = classnames;
+module.exports = classNames;
 
 },{}],2:[function(require,module,exports){
 "use strict";
@@ -82,6 +87,7 @@ var Select = React.createClass({
     clearable: React.PropTypes.bool, // should it be possible to reset value
     clearValueText: React.PropTypes.string, // title for the "clear" control
     clearAllText: React.PropTypes.string, // title for the "clear" control when multi: true
+    searchable: React.PropTypes.bool, // whether to enable searching feature or not
     searchPromptText: React.PropTypes.string, // label to prompt for search input
     name: React.PropTypes.string, // field name, for hidden <input /> tag
     onChange: React.PropTypes.func, // onChange handler: function(newValue) {}
@@ -104,6 +110,7 @@ var Select = React.createClass({
       clearable: true,
       clearValueText: "Clear value",
       clearAllText: "Clear all",
+      searchable: true,
       searchPromptText: "Type to search",
       name: undefined,
       onChange: undefined,
@@ -162,7 +169,7 @@ var Select = React.createClass({
     if (this._focusAfterUpdate) {
       clearTimeout(this._blurTimeout);
       this._focusTimeout = setTimeout((function () {
-        this.refs.input.focus();
+        this.getInputNode().focus();
         this._focusAfterUpdate = false;
       }).bind(this), 50);
     }
@@ -261,6 +268,11 @@ var Select = React.createClass({
     this.setValue(this.state.value);
   },
 
+  getInputNode: function () {
+    var input = this.refs.input;
+    return this.props.searchable ? input : input.getDOMNode();
+  },
+
   fireChangeEvent: function (newState) {
     if (newState.value !== this.state.value && this.props.onChange) {
       this.props.onChange(newState.value, newState.values);
@@ -281,7 +293,7 @@ var Select = React.createClass({
       });
     } else {
       this._openAfterFocus = true;
-      this.refs.input.focus();
+      this.getInputNode().focus();
     }
   },
 
@@ -412,6 +424,10 @@ var Select = React.createClass({
   },
 
   filterOptions: function (options, values) {
+    if (!this.props.searchable) {
+      return options;
+    }
+
     var filterValue = this._optionsFilterString;
     var exclude = (values || this.state.values).map(function (i) {
       return i.value;
@@ -532,6 +548,7 @@ var Select = React.createClass({
   render: function () {
     var selectClass = classes("Select", this.props.className, {
       "is-multi": this.props.multi,
+      "is-searchable": this.props.searchable,
       "is-open": this.state.isOpen,
       "is-focused": this.state.isFocused,
       "is-loading": this.state.isLoading,
@@ -566,6 +583,24 @@ var Select = React.createClass({
       this.buildMenu()
     ) : null;
 
+    var commonProps = {
+      ref: "input",
+      className: "Select-input",
+      tabIndex: this.props.tabIndex || 0,
+      onFocus: this.handleInputFocus,
+      onBlur: this.handleInputBlur };
+    var input;
+
+    if (this.props.searchable) {
+      input = React.createElement(Input, React.__spread({ value: this.state.inputValue, onChange: this.handleInputChange, minWidth: "5" }, commonProps));
+    } else {
+      input = React.createElement(
+        "div",
+        commonProps,
+        " "
+      );
+    }
+
     return React.createElement(
       "div",
       { ref: "wrapper", className: selectClass },
@@ -574,7 +609,7 @@ var Select = React.createClass({
         "div",
         { className: "Select-control", ref: "control", onKeyDown: this.handleKeyDown, onMouseDown: this.handleMouseDown, onTouchEnd: this.handleMouseDown },
         value,
-        React.createElement(Input, { className: "Select-input", tabIndex: this.props.tabIndex, ref: "input", value: this.state.inputValue, onFocus: this.handleInputFocus, onBlur: this.handleInputBlur, onChange: this.handleInputChange, minWidth: "5" }),
+        input,
         React.createElement("span", { className: "Select-arrow" }),
         loading,
         clear
